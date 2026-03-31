@@ -90,3 +90,5 @@ CREATE TABLE SurplusRequestItem (
         REFERENCES SurplusRequest(SurplusRequestId)
         ON DELETE CASCADE
 );
+
+sudo docker run -d --name loanerdb -e MYSQL_ROOT_PASSWORD=yourpassword -e MYSQL_DATABASE=LoanerDB -p 3306:3306 mariadb:latest
