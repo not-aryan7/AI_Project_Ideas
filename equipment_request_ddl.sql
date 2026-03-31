@@ -38,3 +38,24 @@ CREATE TABLE SurplusRequestItem (
         REFERENCES SurplusRequest(SurplusRequestId)
         ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+
+1. Create a fake surplus request:
+
+INSERT INTO SurplusRequest (RequestId, DepartmentId, Status, SubmittedDate) VALUES (1, 1, 'Pending', CURDATE());
+
+2. Add equipment to it:
+
+INSERT INTO SurplusRequestEquipment (SurplusRequestId, EquipmentType, Quantity) VALUES (1, 'Desktop', 2), (1, 'Monitor', 1);
+
+3. Add individual item details:
+
+INSERT INTO SurplusRequestItem (SurplusRequestId, Model, SerialNumber, AssetTag) VALUES (1, 'Dell OptiPlex 7090', 'SN-12345', 'CC-ASSET-001'), (1, 'Dell OptiPlex 7090', 'SN-12346', 'CC-ASSET-002'), (1, 'Dell P2422H Monitor', 'SN-99999', 'CC-ASSET-003');
+
+4. See your data:
+
+SELECT * FROM SurplusRequest;
+
+SELECT * FROM SurplusRequestEquipment;
+
+SELECT * FROM SurplusRequestItem;
