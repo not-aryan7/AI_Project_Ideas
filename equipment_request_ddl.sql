@@ -1,119 +1,87 @@
--- ============================================================
--- Clinton County IT — Equipment Request System DDL
--- Supports: Loan Requests & Surplus Equipment Requests
--- ============================================================
+-- =============================================
+-- Clinton County IT Loaner & Surplus System
+-- DDL for SQL Server (matches existing EF Core models)
+-- =============================================
 
--- --------------------
--- LOOKUP TABLES
--- --------------------
+-- =============================================
+-- EXISTING TABLES (already in your database)
+-- Only run these if starting from scratch
+-- =============================================
 
-CREATE TABLE departments (
-    department_id   INT PRIMARY KEY IDENTITY(1,1),
-    department_name VARCHAR(100) NOT NULL UNIQUE
+-- Departments (matches your Department.cs)
+CREATE TABLE Department (
+    DepartmentId    INT IDENTITY(1,1) PRIMARY KEY,
+    DepartmentName  NVARCHAR(50)  NOT NULL,
+    LocationName    NVARCHAR(50)  NOT NULL
 );
 
-CREATE TABLE equipment_types (
-    equipment_type_id INT PRIMARY KEY IDENTITY(1,1),
-    type_name         VARCHAR(50) NOT NULL UNIQUE   -- Desktop, Laptop, Monitor, Other
+-- Requests / Requesters (matches your Request.cs)
+CREATE TABLE Request (
+    RequestId       INT IDENTITY(1,1) PRIMARY KEY,
+    Name            NVARCHAR(50)  NOT NULL,
+    Email           NVARCHAR(50)  NOT NULL,
+    Phone           NVARCHAR(20)  NULL,
+    Needs           NVARCHAR(100) NULL
 );
 
-CREATE TABLE term_lengths (
-    term_length_id INT PRIMARY KEY IDENTITY(1,1),
-    label          VARCHAR(50) NOT NULL UNIQUE       -- e.g. '1 Week', '1 Month', '6 Months', '1 Year'
+-- Loan Tickets (matches your LoanTicket.cs)
+CREATE TABLE LoanTicket (
+    LoanTicketId    INT IDENTITY(1,1) PRIMARY KEY,
+    DepartmentId    INT NULL,
+    RequestId       INT NULL,
+    TermLength      NVARCHAR(50)  NULL,
+    Status          NVARCHAR(20)  DEFAULT 'Pending',
+    SubmittedDate   DATETIME2     DEFAULT GETDATE(),
+
+    CONSTRAINT FK_LoanTicket_Department FOREIGN KEY (DepartmentId)
+        REFERENCES Department(DepartmentId)
+        ON DELETE SET NULL,
+
+    CONSTRAINT FK_LoanTicket_Request FOREIGN KEY (RequestId)
+        REFERENCES Request(RequestId)
 );
 
--- --------------------
--- REQUESTERS
--- --------------------
+-- =============================================
+-- NEW TABLES (for Surplus Request feature)
+-- =============================================
 
-CREATE TABLE requesters (
-    requester_id  INT PRIMARY KEY IDENTITY(1,1),
-    full_name     VARCHAR(150) NOT NULL,
-    email         VARCHAR(200) NOT NULL,
-    phone         VARCHAR(20)  NULL,
-    department_id INT          NULL,
-    CONSTRAINT fk_requester_dept FOREIGN KEY (department_id)
-        REFERENCES departments(department_id)
+-- Surplus Request (main record - who submitted it & when)
+CREATE TABLE SurplusRequest (
+    SurplusRequestId  INT IDENTITY(1,1) PRIMARY KEY,
+    RequestId         INT NULL,
+    DepartmentId      INT NULL,
+    Status            NVARCHAR(20)  DEFAULT 'Pending',
+    SubmittedDate     DATETIME2     DEFAULT GETDATE(),
+
+    CONSTRAINT FK_SurplusRequest_Request FOREIGN KEY (RequestId)
+        REFERENCES Request(RequestId),
+
+    CONSTRAINT FK_SurplusRequest_Department FOREIGN KEY (DepartmentId)
+        REFERENCES Department(DepartmentId)
+        ON DELETE SET NULL
 );
 
--- --------------------
--- SECTION 1: LOAN REQUESTS  (existing web form)
--- --------------------
--- One row per loan request submitted via the "Loan Request" button.
+-- Equipment checkboxes + quantities (Desktop x2, Laptop x1, etc.)
+CREATE TABLE SurplusRequestEquipment (
+    SurplusEquipmentId  INT IDENTITY(1,1) PRIMARY KEY,
+    SurplusRequestId    INT NOT NULL,
+    EquipmentType       NVARCHAR(50)  NOT NULL,   -- 'Desktop', 'Laptop', 'Monitor', 'Other'
+    Quantity            INT           DEFAULT 1,
 
-CREATE TABLE loan_requests (
-    loan_request_id   INT PRIMARY KEY IDENTITY(1,1),
-    requester_id      INT          NOT NULL,
-    equipment_type_id INT          NOT NULL,
-    term_length_id    INT          NOT NULL,
-    request_date      DATE         NOT NULL DEFAULT GETDATE(),
-    notes             VARCHAR(500) NULL,
-    status            VARCHAR(20)  NOT NULL DEFAULT 'Pending',
-    created_at        DATETIME     NOT NULL DEFAULT GETDATE(),
-
-    CONSTRAINT fk_loan_requester  FOREIGN KEY (requester_id)
-        REFERENCES requesters(requester_id),
-    CONSTRAINT fk_loan_equip_type FOREIGN KEY (equipment_type_id)
-        REFERENCES equipment_types(equipment_type_id),
-    CONSTRAINT fk_loan_term       FOREIGN KEY (term_length_id)
-        REFERENCES term_lengths(term_length_id)
+    CONSTRAINT FK_SurplusEquip_SurplusRequest FOREIGN KEY (SurplusRequestId)
+        REFERENCES SurplusRequest(SurplusRequestId)
+        ON DELETE CASCADE
 );
 
--- --------------------
--- SECTION 2: SURPLUS REQUESTS  (paper form → now digital)
--- --------------------
--- One row per surplus request submitted via the "Surplus Request" button.
+-- Individual item details (Model, Serial #, Asset Tag per item)
+CREATE TABLE SurplusRequestItem (
+    SurplusItemId       INT IDENTITY(1,1) PRIMARY KEY,
+    SurplusRequestId    INT NOT NULL,
+    Model               NVARCHAR(100) NULL,
+    SerialNumber        NVARCHAR(100) NULL,
+    AssetTag            NVARCHAR(50)  NULL,
 
-CREATE TABLE surplus_requests (
-    surplus_request_id INT PRIMARY KEY IDENTITY(1,1),
-    requester_id       INT          NOT NULL,
-    request_date       DATE         NOT NULL DEFAULT GETDATE(),
-    notes              VARCHAR(500) NULL,
-    status             VARCHAR(20)  NOT NULL DEFAULT 'Pending',
-    created_at         DATETIME     NOT NULL DEFAULT GETDATE(),
-
-    CONSTRAINT fk_surplus_requester FOREIGN KEY (requester_id)
-        REFERENCES requesters(requester_id)
+    CONSTRAINT FK_SurplusItem_SurplusRequest FOREIGN KEY (SurplusRequestId)
+        REFERENCES SurplusRequest(SurplusRequestId)
+        ON DELETE CASCADE
 );
-
--- Equipment type + quantity per surplus request
--- (the checkboxes: Desktop ×2, Laptop ×1, etc.)
-
-CREATE TABLE surplus_request_equipment (
-    id                 INT PRIMARY KEY IDENTITY(1,1),
-    surplus_request_id INT NOT NULL,
-    equipment_type_id  INT NOT NULL,
-    quantity           INT NOT NULL DEFAULT 1,
-
-    CONSTRAINT fk_sre_request    FOREIGN KEY (surplus_request_id)
-        REFERENCES surplus_requests(surplus_request_id),
-    CONSTRAINT fk_sre_equip_type FOREIGN KEY (equipment_type_id)
-        REFERENCES equipment_types(equipment_type_id)
-);
-
--- Individual items listed in the surplus table
--- (the rows: Model / Serial Number / Asset Tag)
-
-CREATE TABLE surplus_request_items (
-    item_id            INT PRIMARY KEY IDENTITY(1,1),
-    surplus_request_id INT          NOT NULL,
-    model              VARCHAR(100) NULL,
-    serial_number      VARCHAR(100) NULL,
-    asset_tag          VARCHAR(50)  NULL,
-
-    CONSTRAINT fk_sri_request FOREIGN KEY (surplus_request_id)
-        REFERENCES surplus_requests(surplus_request_id)
-);
-
--- --------------------
--- SEED LOOKUP DATA
--- --------------------
-
-INSERT INTO equipment_types (type_name) VALUES
-    ('Desktop'), ('Laptop'), ('Monitor'), ('Other');
-
-INSERT INTO term_lengths (label) VALUES
-    ('1 Week'), ('2 Weeks'), ('1 Month'), ('3 Months'), ('6 Months'), ('1 Year');
-
--- Add your departments here:
--- INSERT INTO departments (department_name) VALUES ('Information Technology'), ('Finance'), ...
