@@ -1,94 +1,40 @@
 -- =============================================
--- Clinton County IT Loaner & Surplus System
--- DDL for SQL Server
--- Matches existing EF Core models exactly
--- =============================================
-
--- =============================================
--- EXISTING TABLES (already in your database)
--- Only run these if starting from scratch
--- =============================================
-
-CREATE TABLE Department (
-    DepartmentId    INT IDENTITY(1,1) PRIMARY KEY,
-    DepartmentName  NVARCHAR(50)  NOT NULL,
-    LocationName    NVARCHAR(50)  NOT NULL
-);
-
-CREATE TABLE Request (
-    RequestId        INT IDENTITY(1,1) PRIMARY KEY,
-    Name             NVARCHAR(50)   NOT NULL,
-    Email            NVARCHAR(50)   NOT NULL,
-    DepartmentId     INT            NULL,
-    TermLengthDays   INT            NULL,
-    Date             DATE           NULL,
-    Status           NVARCHAR(20)   NULL,
-    Needs            NVARCHAR(100)  NULL,
-
-    CONSTRAINT FK_Request_Department FOREIGN KEY (DepartmentId)
-        REFERENCES Department(DepartmentId)
-);
-
-CREATE TABLE LoanTicket (
-    LoanTicketId     INT IDENTITY(1,1) PRIMARY KEY,
-    UserId           INT            NULL,
-    DeviceId         INT            NOT NULL,
-    DateLoaned       DATE           NULL,
-    TermLengthDays   INT            NOT NULL,
-    DepartmentId     INT            NOT NULL,
-    Status           INT            NOT NULL DEFAULT 0,
-    RequestId        INT            NULL,
-
-    CONSTRAINT FK_LoanTicket_Department FOREIGN KEY (DepartmentId)
-        REFERENCES Department(DepartmentId)
-        ON DELETE SET NULL,
-
-    CONSTRAINT FK_LoanTicket_Request FOREIGN KEY (RequestId)
-        REFERENCES Request(RequestId)
-);
-
--- =============================================
--- NEW TABLES (for Surplus Request feature)
--- Run these to add surplus functionality
+-- Surplus Tables — MariaDB syntax
 -- =============================================
 
 CREATE TABLE SurplusRequest (
-    SurplusRequestId  INT IDENTITY(1,1) PRIMARY KEY,
+    SurplusRequestId  INT AUTO_INCREMENT PRIMARY KEY,
     RequestId         INT            NULL,
     DepartmentId      INT            NULL,
-    Status            NVARCHAR(20)   DEFAULT 'Pending',
-    SubmittedDate     DATE           NULL DEFAULT GETDATE(),
+    Status            VARCHAR(20)    DEFAULT 'Pending',
+    SubmittedDate     DATE           DEFAULT (CURDATE()),
 
     CONSTRAINT FK_SurplusRequest_Request FOREIGN KEY (RequestId)
         REFERENCES Request(RequestId),
 
     CONSTRAINT FK_SurplusRequest_Department FOREIGN KEY (DepartmentId)
         REFERENCES Department(DepartmentId)
-);
+) ENGINE=InnoDB;
 
--- Equipment checkboxes + quantities (Desktop x2, Monitor x1, etc.)
 CREATE TABLE SurplusRequestEquipment (
-    SurplusEquipmentId  INT IDENTITY(1,1) PRIMARY KEY,
+    SurplusEquipmentId  INT AUTO_INCREMENT PRIMARY KEY,
     SurplusRequestId    INT            NOT NULL,
-    EquipmentType       NVARCHAR(50)   NOT NULL,  -- 'Desktop','Laptop','Monitor','Other'
+    EquipmentType       VARCHAR(50)    NOT NULL,
     Quantity            INT            DEFAULT 1,
 
     CONSTRAINT FK_SurplusEquip_SurplusRequest FOREIGN KEY (SurplusRequestId)
         REFERENCES SurplusRequest(SurplusRequestId)
         ON DELETE CASCADE
-);
+) ENGINE=InnoDB;
 
--- Individual item rows (Model, Serial #, Asset Tag per item)
 CREATE TABLE SurplusRequestItem (
-    SurplusItemId       INT IDENTITY(1,1) PRIMARY KEY,
+    SurplusItemId       INT AUTO_INCREMENT PRIMARY KEY,
     SurplusRequestId    INT            NOT NULL,
-    Model               NVARCHAR(100)  NULL,
-    SerialNumber        NVARCHAR(100)  NULL,
-    AssetTag            NVARCHAR(50)   NULL,
+    Model               VARCHAR(100)   NULL,
+    SerialNumber        VARCHAR(100)   NULL,
+    AssetTag            VARCHAR(50)    NULL,
 
     CONSTRAINT FK_SurplusItem_SurplusRequest FOREIGN KEY (SurplusRequestId)
         REFERENCES SurplusRequest(SurplusRequestId)
         ON DELETE CASCADE
-);
-
-sudo docker run -d --name loanerdb -e MYSQL_ROOT_PASSWORD=yourpassword -e MYSQL_DATABASE=LoanerDB -p 3306:3306 mariadb:latest
+) ENGINE=InnoDB;
