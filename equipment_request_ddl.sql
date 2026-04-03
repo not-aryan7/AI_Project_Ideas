@@ -59,3 +59,13 @@ SELECT * FROM SurplusRequest;
 SELECT * FROM SurplusRequestEquipment;
 
 SELECT * FROM SurplusRequestItem;
+
+    public async Task<string> GetAvailableAssets(string search = "")
+    {
+        var url = $"https://assets.clintoncountyny.gov/api/v1/hardware?status=RTD&limit=50";
+        if (!string.IsNullOrEmpty(search))
+            url += $"&search={search}";
+        Caller call = new Caller(url, "Get", snipeItToken);
+        var result = await call.Call();
+        return result;
+    }
